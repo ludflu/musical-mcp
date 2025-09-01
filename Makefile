@@ -21,7 +21,7 @@ install:
 
 # Run the application
 run:
-	uv run src/main.py
+	uv run python src/main.py C Major cmajor.mid
 
 # Run tests
 test:

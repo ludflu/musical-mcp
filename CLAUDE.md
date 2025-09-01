@@ -33,12 +33,6 @@ This project uses `uv` as the Python package manager and includes a Makefile for
 
 ## Project Structure
 
-This is a minimal Python starter project with:
-
-- **src/main.py**: Entry point with a simple "Hello World" function
-- **pyproject.toml**: Project configuration with dependencies and development tools
-- **uv.lock**: Lock file for reproducible environments
-
 The project is configured with standard Python development tools:
 - Black for code formatting
 - isort for import sorting  
