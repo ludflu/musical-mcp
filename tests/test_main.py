@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from music21 import note, pitch, stream
 
-from src.main import (
+from src.scales import (
     create_scale,
     get_available_modes,
     print_scale_notes,
