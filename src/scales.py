@@ -1,8 +1,10 @@
 """Musical scales module for generating and working with various musical scales."""
 
-from typing import List, Literal
+from typing import List, Literal, Tuple
 
-from music21 import duration, note, pitch, scale, stream
+from mingus.containers import Bar, Note, Track
+from mingus.core import intervals, notes, scales
+from mingus.midi import midi_file_out
 
 # Type definitions for allowed values
 ScaleMode = Literal[
@@ -67,9 +69,9 @@ def validate_key(key: str) -> str:
     return key
 
 
-def create_scale(key: str, mode: str, octaves: int = 1) -> stream.Stream:
+def create_scale(key: str, mode: str, octaves: int = 1) -> Track:
     """
-    Create a scale using music21.
+    Create a scale using mingus.
 
     Args:
         key: The root note (e.g., 'C', 'F#', 'Bb')
@@ -77,120 +79,109 @@ def create_scale(key: str, mode: str, octaves: int = 1) -> stream.Stream:
         octaves: Number of octaves to generate
 
     Returns:
-        music21 Stream containing the scale
+        mingus Track containing the scale
     """
     try:
         # Validate inputs
         validated_key = validate_key(key)
         validated_mode = validate_mode(mode)
 
-        # Create the scale object
+        # Convert flat notation (Bb -> A#) for mingus compatibility
+        if "b" in validated_key:
+            validated_key = notes.diminish(validated_key.replace("b", ""))
+
+        # Get scale notes using mingus
+        scale_notes = []
+
         if validated_mode.lower() == "major":
-            sc = scale.MajorScale(validated_key)
+            scale_notes = scales.Major(validated_key).ascending()
         elif validated_mode.lower() == "minor":
-            sc = scale.MinorScale(validated_key)
+            scale_notes = scales.NaturalMinor(validated_key).ascending()
         elif validated_mode.lower() == "dorian":
-            sc = scale.DorianScale(validated_key)
+            scale_notes = scales.Dorian(validated_key).ascending()
         elif validated_mode.lower() == "phrygian":
-            sc = scale.PhrygianScale(validated_key)
+            scale_notes = scales.Phrygian(validated_key).ascending()
         elif validated_mode.lower() == "lydian":
-            sc = scale.LydianScale(validated_key)
+            scale_notes = scales.Lydian(validated_key).ascending()
         elif validated_mode.lower() == "mixolydian":
-            sc = scale.MixolydianScale(validated_key)
+            scale_notes = scales.Mixolydian(validated_key).ascending()
         elif validated_mode.lower() == "locrian":
-            sc = scale.LocrianScale(validated_key)
+            scale_notes = scales.Locrian(validated_key).ascending()
         elif validated_mode.lower() == "melodicminor":
-            sc = scale.MelodicMinorScale(validated_key)
+            scale_notes = scales.MelodicMinor(validated_key).ascending()
         elif validated_mode.lower() == "harmonicminor":
-            sc = scale.HarmonicMinorScale(validated_key)
+            scale_notes = scales.HarmonicMinor(validated_key).ascending()
         elif validated_mode.lower() == "pentatonicmajor":
-            # Create major pentatonic manually: 1, 2, 3, 5, 6
-            from music21.scale import ConcreteScale
-
-            sc = ConcreteScale(tonic=validated_key, pitches=["C", "D", "E", "G", "A"])
-            if validated_key != "C":
-                major_scale = scale.MajorScale(validated_key)
-                pentatonic_pitches = [major_scale.pitches[i] for i in [0, 1, 2, 4, 5]]
-                sc = ConcreteScale(
-                    tonic=validated_key, pitches=[str(p) for p in pentatonic_pitches]
-                )
+            # Major pentatonic: 1, 2, 3, 5, 6
+            major_scale = scales.Major(validated_key).ascending()
+            scale_notes = [major_scale[i] for i in [0, 1, 2, 4, 5]]
         elif validated_mode.lower() == "pentatonicminor":
-            # Create minor pentatonic manually: 1, b3, 4, 5, b7
-            from music21.scale import ConcreteScale
-
-            minor_scale = scale.MinorScale(validated_key)
-            pentatonic_pitches = [minor_scale.pitches[i] for i in [0, 2, 3, 4, 6]]
-            sc = ConcreteScale(
-                tonic=validated_key, pitches=[str(p) for p in pentatonic_pitches]
-            )
+            # Minor pentatonic: 1, b3, 4, 5, b7
+            minor_scale = scales.NaturalMinor(validated_key).ascending()
+            scale_notes = [minor_scale[i] for i in [0, 2, 3, 4, 6]]
         elif validated_mode.lower() == "blues":
-            # Create blues scale manually: 1, b3, 4, b5, 5, b7
-            from music21 import interval
-            from music21.scale import ConcreteScale
-
-            tonic_pitch = pitch.Pitch(validated_key)
-            blues_intervals = ["P1", "m3", "P4", "d5", "P5", "m7"]
-            blues_pitches = [
-                tonic_pitch.transpose(interval.Interval(i)) for i in blues_intervals
+            # Blues scale: manually create it (1, b3, 4, b5, 5, b7)
+            # Start with natural minor and add the b5
+            minor_scale = scales.NaturalMinor(validated_key).ascending()
+            scale_notes = [
+                minor_scale[0],
+                minor_scale[2],
+                minor_scale[3],
+                notes.diminish(minor_scale[4]),
+                minor_scale[4],
+                minor_scale[6],
             ]
-            sc = ConcreteScale(
-                tonic=validated_key, pitches=[str(p) for p in blues_pitches]
-            )
         elif validated_mode.lower() == "chromatic":
-            sc = scale.ChromaticScale(validated_key)
+            scale_notes = scales.Chromatic(validated_key).ascending()
         elif validated_mode.lower() == "wholetone":
-            sc = scale.WholeToneScale(validated_key)
+            scale_notes = scales.WholeTone(validated_key).ascending()
         elif validated_mode.lower() == "octatonic":
-            sc = scale.OctatonicScale(validated_key)
+            scale_notes = scales.Octatonic(validated_key).ascending()
         else:
-            # This should never happen due to validate_mode, but keeping for safety
             raise ValueError(f"Unsupported scale mode: {mode}")
 
-        # Create a stream with the scale notes
-        s = stream.Stream()
+        # Create a mingus Track with the scale notes
+        track = Track()
+        bar = Bar()
 
         for octave in range(octaves):
-            scale_pitches = sc.getPitches()
-            # Use only the first 7 pitches (exclude the octave tonic)
-            for p in scale_pitches[:-1]:  # Exclude the last pitch (octave tonic)
-                # Adjust octave
-                new_pitch = pitch.Pitch(p.name)
-                new_pitch.octave = 4 + octave
-                n = note.Note(new_pitch, duration=duration.Duration(0.5))
-                s.append(n)
+            for note_name in scale_notes[:-1]:  # Exclude octave tonic
+                octave_note = f"{note_name}-{4 + octave}"
+                note_obj = Note(octave_note)
+                if not bar.place_notes(note_obj, 8):  # Eighth note duration
+                    track.add_bar(bar)
+                    bar = Bar()
+                    bar.place_notes(note_obj, 8)
 
-        # Add final tonic note one octave higher (only once)
-        if hasattr(sc, "tonic") and sc.tonic is not None:
-            final_pitch = pitch.Pitch(sc.tonic.name)
-            final_pitch.octave = 4 + octaves
-            s.append(note.Note(final_pitch, duration=duration.Duration(1.0)))
+        # Add final tonic note one octave higher
+        final_note = Note(f"{validated_key}-{4 + octaves}")
+        if not bar.place_notes(final_note, 4):  # Quarter note
+            track.add_bar(bar)
+            bar = Bar()
+            bar.place_notes(final_note, 4)
 
-        return s
+        # Add the final bar if it has content
+        if len(bar) > 0:
+            track.add_bar(bar)
+
+        return track
 
     except Exception as e:
         raise ValueError(f"Error creating scale: {e}")
 
 
-def write_midi_file(
-    scale_stream: stream.Stream, filename: str, tempo: int = 120
-) -> None:
+def write_midi_file(scale_track: Track, filename: str, tempo: int = 120) -> None:
     """
     Write a scale to a MIDI file.
 
     Args:
-        scale_stream: The music21 Stream to write
+        scale_track: The mingus Track to write
         filename: Output MIDI filename
         tempo: Tempo in BPM
     """
     try:
-        # Set tempo
-        from music21.tempo import MetronomeMark
-
-        metronome = MetronomeMark(number=tempo)
-        scale_stream.insert(0, metronome)
-
-        # Write to MIDI file
-        scale_stream.write("midi", fp=filename)
+        # Write to MIDI file using mingus
+        midi_file_out.write_Track(filename, scale_track, tempo)
         print(f"MIDI file written to: {filename}")
 
     except Exception as e:
@@ -198,19 +189,26 @@ def write_midi_file(
         raise
 
 
-def print_scale_notes(scale_stream: stream.Stream, key: str, mode: str) -> None:
+def print_scale_notes(scale_track: Track, key: str, mode: str) -> None:
     """
     Print the notes in the scale.
 
     Args:
-        scale_stream: The music21 Stream containing the scale
+        scale_track: The mingus Track containing the scale
         key: The root note
         mode: The scale mode
     """
     notes = []
-    for element in scale_stream.notes:
-        if isinstance(element, note.Note) and element.pitch is not None:
-            notes.append(str(element.pitch))
+    for bar in scale_track:
+        for beat in bar:
+            if beat[2]:  # If there are notes in this beat
+                for note in beat[2]:
+                    if hasattr(note, "name"):
+                        notes.append(note.name)
+                    elif isinstance(note, str):
+                        notes.append(note)
+                    else:
+                        notes.append(str(note))
 
     print(f"\n{key} {mode.title()} Scale:")
     print("Notes:", " - ".join(notes))

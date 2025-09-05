@@ -1,5 +1,15 @@
 FROM python:3.12-slim
 
+# Install system dependencies for audio/MIDI support
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libgthread-2.0-0 \
+    libasound2-dev \
+    libpulse0 \
+    libsdl2-dev \
+    libsdl2-mixer-2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 

@@ -1,13 +1,23 @@
 import argparse
 import sys
 
+import pygame
+
 from scales import create_scale, get_available_modes, print_scale_notes, write_midi_file
+
+
+def play_midi(fname: str) -> None:
+    pygame.init()
+    pygame.mixer.music.load(fname)  # Load the MIDI file
+    pygame.mixer.music.play()  # Start playback
+    while pygame.mixer.music.get_busy():
+        pygame.time.Clock().tick(10)  # Limit CPU usage
 
 
 def main() -> None:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Generate musical scales and write them to MIDI files using music21",
+        description="Generate musical scales and write them to MIDI files using mingus",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -77,13 +87,15 @@ Examples:
 
     try:
         # Create the scale
-        scale_stream = create_scale(args.key, args.mode, args.octaves)
+        scale_track = create_scale(args.key, args.mode, args.octaves)
 
         # Print the scale notes
-        print_scale_notes(scale_stream, args.key, args.mode)
+        print_scale_notes(scale_track, args.key, args.mode)
 
         # Write the scale to MIDI file
-        write_midi_file(scale_stream, args.output_file, args.tempo)
+        write_midi_file(scale_track, args.output_file, args.tempo)
+
+        # play_midi(args.output_file)
 
     except ValueError as e:
         print(f"Error: {e}")

@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "music21>=9.7.1",
+    "mingus>=0.6.1",
     "pygame>=2.6.1",
 ]
 

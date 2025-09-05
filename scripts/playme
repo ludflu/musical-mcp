@@ -1,0 +1,7 @@
+#!/bin/bash
+
+KEY=$1
+MODE=$2
+
+./musical-mcp $KEY $MODE /tmp/output.mid
+timidity -A 100 -Od /tmp/output.mid

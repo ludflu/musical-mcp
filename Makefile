@@ -22,6 +22,9 @@ install:
 # Run the application
 run:
 	uv run python src/main.py C Major cmajor.mid
+	uv run python src/main.py C dorian dorian.mid
+	uv run python src/main.py C pentatonicMajor -o 3 pentatonicMajor.mid
+	uv run python src/main.py C pentatonicMinor -o 3 pentatonicMinor.mid
 
 # Run tests
 test:
@@ -56,10 +59,10 @@ clean:
 
 # Docker targets
 docker-build:
-	docker build -t base-starter .
+	docker build -t musical-mcp .
 
 docker-run:
-	docker run --rm base-starter
+	docker run --rm musical-mcp
 
 # Run full development workflow
 all: install lint test
